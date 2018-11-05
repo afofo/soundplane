@@ -28,7 +28,7 @@ public:
 		mGlitchCallback(std::move(glitchCallback)),
 		mSuccessCallback(std::move(successCallback)) {}
 
-	void operator()(const SoundplaneOutputFrame& frame)
+	void operator()(const SensorFrame& frame)
 	{
 		if (mStartupCtr > kSoundplaneStartupFrames)
 		{
@@ -60,7 +60,7 @@ public:
 	}
 
 private:
-	SoundplaneOutputFrame mPreviousFrame;
+	SensorFrame mPreviousFrame;
 	int mStartupCtr = 0;
 	GlitchCallback mGlitchCallback;
 	SuccessCallback mSuccessCallback;
@@ -125,7 +125,7 @@ void LibusbSoundplaneDriver::init()
 	mProcessThread = std::thread(&LibusbSoundplaneDriver::processThread, this);
 }
 
-MLSoundplaneState LibusbSoundplaneDriver::getDeviceState() const
+int LibusbSoundplaneDriver::getDeviceState() const
 {
 	return mQuitting.load(std::memory_order_acquire) ?
 		kDeviceIsTerminating :
@@ -317,7 +317,7 @@ bool LibusbSoundplaneDriver::processThreadFillTransferInformation(
 	return true;
 }
 
-bool LibusbSoundplaneDriver::processThreadSetDeviceState(MLSoundplaneState newState)
+bool LibusbSoundplaneDriver::processThreadSetDeviceState(int newState)
 {
 	mState.store(newState, std::memory_order_release);
 	mListener->deviceStateChanged(*this, newState);
@@ -478,13 +478,13 @@ void LibusbSoundplaneDriver::processThread()
 		Transfers transfers;
 		LibusbClaimedDevice handle;
 		auto anomalyFilter = makeAnomalyFilter(
-			[this](int startupCtr, float df, const SoundplaneOutputFrame& previousFrame, const SoundplaneOutputFrame& frame)
+			[this](int startupCtr, float df, const SensorFrame& previousFrame, const SensorFrame& frame)
 			{
 				mListener->handleDeviceError(kDevDataDiffTooLarge, startupCtr, 0, df, 0.);
 				mListener->handleDeviceDataDump(previousFrame.data(), previousFrame.size());
 				mListener->handleDeviceDataDump(frame.data(), frame.size());
 			},
-			[this](const SoundplaneOutputFrame& frame)
+			[this](const SensorFrame& frame)
 			{
 				mListener->receivedFrame(*this, frame.data(), frame.size());
 			});

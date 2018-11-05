@@ -26,7 +26,7 @@ public:
 
 	void init();
 
-	virtual MLSoundplaneState getDeviceState() const override;
+	virtual int getDeviceState() const override;
 	virtual uint16_t getFirmwareVersion() const override;
 	virtual std::string getSerialNumberString() const override;
 
@@ -257,7 +257,7 @@ private:
 	 *
 	 * Returns false if the process thread should quit.
 	 */
-	bool processThreadSetDeviceState(MLSoundplaneState newState);
+	bool processThreadSetDeviceState(int newState);
 	/**
 	 * Returns false if selecting the isochronous failed.
 	 */
@@ -286,7 +286,7 @@ private:
 	 * decides to quit, the outward facing state of the driver is
 	 * kDeviceIsTerminating if mQuitting is true.
 	 */
-	std::atomic<MLSoundplaneState> mState;
+	std::atomic<int> mState;
 	/**
 	 * mQuitting is set to true by the destructor, and is read by the processing
 	 * thread and getDeviceState in order to know if the driver is quitting.

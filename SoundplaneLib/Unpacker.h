@@ -88,7 +88,7 @@ class Unpacker
 	}
 
 public:
-	using GotFrameCallback = std::function<void (const SoundplaneOutputFrame& frame)>;
+	using GotFrameCallback = std::function<void (const SensorFrame& frame)>;
 
 	Unpacker(GotFrameCallback gotFrame) :
 		mGotFrame(std::move(gotFrame)) {}
