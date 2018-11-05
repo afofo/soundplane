@@ -1,3 +1,5 @@
+cmake_minimum_required(VERSION 3.2)
+
 set(SP_DRIVER_SOURCES
   SensorFrame.cpp
   SensorFrame.h
