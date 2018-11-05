@@ -84,27 +84,30 @@ bool libusbTransferStatusIsFatal(libusb_transfer_status error)
 
 }
 
-std::unique_ptr<SoundplaneDriver> SoundplaneDriver::create(SoundplaneDriverListener *listener)
+std::unique_ptr<SoundplaneDriver> SoundplaneDriver::create(SoundplaneDriverListener& listener)
 {
-	auto *driver = new LibusbSoundplaneDriver(listener);
-	driver->init();
-	return std::unique_ptr<LibusbSoundplaneDriver>(driver);
+	return std::unique_ptr<LibusbSoundplaneDriver>(new LibusbSoundplaneDriver(listener));
 }
 
 
-LibusbSoundplaneDriver::LibusbSoundplaneDriver(SoundplaneDriverListener* listener) :
-	mState(kNoDevice),
-	mQuitting(false),
-	mListener(listener),
-	mSetCarriersRequest(nullptr),
-	mEnableCarriersRequest(nullptr)
+LibusbSoundplaneDriver::LibusbSoundplaneDriver(SoundplaneDriverListener& listener) :
+        mState(kNoDevice),
+        mQuitting(false),
+        mListener(listener),
+        mSetCarriersRequest(nullptr),
+        mEnableCarriersRequest(nullptr)
 {
-	assert(listener);
+  printf("creating SoundplaneDriver...\n");
+
+  for(int i=0; i < kSoundplaneNumCarriers; ++i)
+  {
+    mCurrentCarriers[i] = kDefaultCarriers[i];
+  }
 }
 
 LibusbSoundplaneDriver::~LibusbSoundplaneDriver()
 {
-	// This causes getDeviceState to return kDeviceIsTerminating
+	// This causes getDeviceState to return kDeviceClosing
 	mQuitting.store(true, std::memory_order_release);
 	mCondition.notify_one();
 	mProcessThread.join();
@@ -115,7 +118,7 @@ LibusbSoundplaneDriver::~LibusbSoundplaneDriver()
 	libusb_exit(mLibusbContext);
 }
 
-void LibusbSoundplaneDriver::init()
+void LibusbSoundplaneDriver::start()
 {
 	if (libusb_init(&mLibusbContext) < 0) {
 		throw new std::runtime_error("Failed to initialize libusb");
@@ -128,7 +131,7 @@ void LibusbSoundplaneDriver::init()
 int LibusbSoundplaneDriver::getDeviceState() const
 {
 	return mQuitting.load(std::memory_order_acquire) ?
-		kDeviceIsTerminating :
+		kDeviceClosing :
 		mState.load(std::memory_order_acquire);
 }
 
@@ -160,6 +163,24 @@ void LibusbSoundplaneDriver::enableCarriers(unsigned long mask)
 {
 	delete mEnableCarriersRequest.exchange(
 		new unsigned long(mask), std::memory_order_release);
+}
+
+int LibusbSoundplaneDriver::getSerialNumber() const
+{
+  const auto state = getDeviceState();
+  if (state == kDeviceConnected || state == kDeviceHasIsochSync)
+  {
+    const auto serialString = getSerialNumberString();
+    try
+    {
+      return stoi(serialString);
+    }
+    catch (...)
+    {
+      return 0;
+    }
+  }
+  return 0;
 }
 
 void LibusbSoundplaneDriver::processThreadControlTransferCallback(struct libusb_transfer *xfr) {
@@ -320,7 +341,7 @@ bool LibusbSoundplaneDriver::processThreadFillTransferInformation(
 bool LibusbSoundplaneDriver::processThreadSetDeviceState(int newState)
 {
 	mState.store(newState, std::memory_order_release);
-	mListener->deviceStateChanged(*this, newState);
+	mListener.deviceStateChanged(*this, newState);
 	return !mQuitting.load(std::memory_order_acquire);
 }
 
@@ -480,13 +501,13 @@ void LibusbSoundplaneDriver::processThread()
 		auto anomalyFilter = makeAnomalyFilter(
 			[this](int startupCtr, float df, const SensorFrame& previousFrame, const SensorFrame& frame)
 			{
-				mListener->handleDeviceError(kDevDataDiffTooLarge, startupCtr, 0, df, 0.);
-				mListener->handleDeviceDataDump(previousFrame.data(), previousFrame.size());
-				mListener->handleDeviceDataDump(frame.data(), frame.size());
+				mListener.handleDeviceError(kDevDataDiffTooLarge, startupCtr, 0, df, 0.);
+				mListener.handleDeviceDataDump(previousFrame.data(), previousFrame.size());
+				mListener.handleDeviceDataDump(frame.data(), frame.size());
 			},
 			[this](const SensorFrame& frame)
 			{
-				mListener->receivedFrame(*this, frame.data(), frame.size());
+				mListener.receivedFrame(*this, frame.data(), frame.size());
 			});
 		LibusbUnpacker unpacker(anomalyFilter);
 
@@ -520,5 +541,5 @@ void LibusbSoundplaneDriver::processThread()
 		if (!processThreadSetDeviceState(kNoDevice)) continue;
 	}
 
-	processThreadSetDeviceState(kDeviceIsTerminating);
+	processThreadSetDeviceState(kDeviceClosing);
 }

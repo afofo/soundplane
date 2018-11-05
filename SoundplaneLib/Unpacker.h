@@ -9,6 +9,7 @@
 #include <functional>
 
 #include "SoundplaneModelA.h"
+#include "SensorFrame.h"
 
 /**
  * The Soundplane model A USB protocol exposes two separate endpoints with
@@ -81,7 +82,7 @@ class Unpacker
 	 */
 	void matchedPackets(SoundplaneADataPacket& p0, SoundplaneADataPacket& p1)
 	{
-		std::array<float, kSoundplaneOutputFrameLength> workingFrame;
+		std::array<float, SensorGeometry::elements> workingFrame;
 		K1_unpack_float2(p0.packedData, p1.packedData, workingFrame);
 		K1_clear_edges(workingFrame);
 		mGotFrame(workingFrame);

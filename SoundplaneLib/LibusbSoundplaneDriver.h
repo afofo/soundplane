@@ -18,13 +18,18 @@
 #include "SoundplaneModelA.h"
 #include "Unpacker.h"
 
+// FIXME: confirm this is the right place for these
+const int kSoundplaneABuffersInFlight = 4;
+const int kSoundplaneANumIsochFrames = 20;
+const int kSoundplaneStartupFrames = 50;
+
 class LibusbSoundplaneDriver : public SoundplaneDriver
 {
 public:
-	LibusbSoundplaneDriver(SoundplaneDriverListener* listener);
+	LibusbSoundplaneDriver(SoundplaneDriverListener& listener);
 	~LibusbSoundplaneDriver();
 
-	void init();
+	virtual void start() override;
 
 	virtual int getDeviceState() const override;
 	virtual uint16_t getFirmwareVersion() const override;
@@ -33,6 +38,8 @@ public:
 	virtual const unsigned char *getCarriers() const override;
 	virtual void setCarriers(const Carriers& carriers) override;
 	virtual void enableCarriers(unsigned long mask) override;
+	int getSerialNumber() const override;
+
 
 private:
 	/**
@@ -284,7 +291,7 @@ private:
 	/**
 	 * mState is set only by the processThread. Because the processThread never
 	 * decides to quit, the outward facing state of the driver is
-	 * kDeviceIsTerminating if mQuitting is true.
+	 * kDeviceClosing if mQuitting is true.
 	 */
 	std::atomic<int> mState;
 	/**
@@ -319,7 +326,7 @@ private:
 	 * Written on object initialization and then never modified. Can be read
 	 * from any thread.
 	 */
-	SoundplaneDriverListener	* const mListener;
+	SoundplaneDriverListener&	mListener;
 
 	std::thread					mProcessThread;
 
