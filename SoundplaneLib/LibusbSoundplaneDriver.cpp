@@ -20,13 +20,12 @@ namespace
 
 constexpr int kInterfaceNumber = 0;
 
-template<typename GlitchCallback, typename SuccessCallback>
+template<typename GlitchCallback>
 class AnomalyFilter
 {
 public:
-	AnomalyFilter(GlitchCallback glitchCallback, SuccessCallback successCallback) :
-		mGlitchCallback(std::move(glitchCallback)),
-		mSuccessCallback(std::move(successCallback)) {}
+	AnomalyFilter(GlitchCallback glitchCallback) :
+		mGlitchCallback(std::move(glitchCallback)) {}
 
 	void operator()(const SensorFrame& frame)
 	{
@@ -35,8 +34,9 @@ public:
 			float df = frameDiff(mPreviousFrame, frame);
 			if (df < kMaxFrameDiff)
 			{
+				// FIXME: remove this case
 				// We are OK, the data gets out normally
-				mSuccessCallback(frame);
+				// mSuccessCallback(frame);
 			}
 			else
 			{
@@ -63,15 +63,14 @@ private:
 	SensorFrame mPreviousFrame;
 	int mStartupCtr = 0;
 	GlitchCallback mGlitchCallback;
-	SuccessCallback mSuccessCallback;
 };
 
-template<typename GlitchCallback, typename SuccessCallback>
-AnomalyFilter<GlitchCallback, SuccessCallback> makeAnomalyFilter(
-	GlitchCallback glitchCallback, SuccessCallback successCallback)
+template<typename GlitchCallback>
+AnomalyFilter<GlitchCallback> makeAnomalyFilter(
+	GlitchCallback glitchCallback)
 {
-	return AnomalyFilter<GlitchCallback, SuccessCallback>(
-		std::move(glitchCallback), std::move(successCallback));
+	return AnomalyFilter<GlitchCallback>(
+		std::move(glitchCallback));
 }
 
 bool libusbTransferStatusIsFatal(libusb_transfer_status error)
@@ -341,7 +340,6 @@ bool LibusbSoundplaneDriver::processThreadFillTransferInformation(
 bool LibusbSoundplaneDriver::processThreadSetDeviceState(int newState)
 {
 	mState.store(newState, std::memory_order_release);
-	mListener.deviceStateChanged(*this, newState);
 	return !mQuitting.load(std::memory_order_acquire);
 }
 
@@ -501,13 +499,9 @@ void LibusbSoundplaneDriver::processThread()
 		auto anomalyFilter = makeAnomalyFilter(
 			[this](int startupCtr, float df, const SensorFrame& previousFrame, const SensorFrame& frame)
 			{
-				mListener.handleDeviceError(kDevDataDiffTooLarge, startupCtr, 0, df, 0.);
-				mListener.handleDeviceDataDump(previousFrame.data(), previousFrame.size());
-				mListener.handleDeviceDataDump(frame.data(), frame.size());
-			},
-			[this](const SensorFrame& frame)
-			{
-				mListener.receivedFrame(*this, frame.data(), frame.size());
+				// FIXME: port this correctly, thread safety?
+				// mListener.handleDeviceError(kDevDataDiffTooLarge, startupCtr, 0, df, 0.);
+				mListener.onError(kDevDataDiffTooLarge, "anomaly filter diff too large");
 			});
 		LibusbUnpacker unpacker(anomalyFilter);
 
