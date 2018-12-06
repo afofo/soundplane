@@ -81,6 +81,10 @@ int main(int argc, const char *argv[]) {
   auto driver = SoundplaneDriver::create(listener);
   driver->start();
 
+  //  std::cout << "firmware: " << driver->getFirmwareVersion() << std::endl;
+  //std::cout << "  serial: " << driver->getSerialNumberString() << std::endl;
+  //std::cout << "   state: " << driver->getDeviceState() << std::endl;
+  
   time_point<system_clock> start, now;
   start = now = system_clock::now();
   auto secondsSinceStart = duration_cast<seconds>(now - start).count();

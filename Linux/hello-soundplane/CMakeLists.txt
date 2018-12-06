@@ -16,6 +16,8 @@ endif()
 
 add_subdirectory(${SP_SOUNDPLANELIB_DIR} SoundplaneLib)
 
+message("lib usb: ${LIBUSB_1_LIBRARIES}")
+
 set(HSP_SOURCES
     main.cpp
 )
@@ -26,4 +28,6 @@ add_executable(${EXECUTABLE_NAME}
 
 target_link_libraries(${EXECUTABLE_NAME}
   soundplanelib
+  pthread
+  usb-1.0
 )

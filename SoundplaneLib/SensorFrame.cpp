@@ -5,6 +5,7 @@
 #include "SensorFrame.h"
 #include <iostream>
 #include <cmath>
+#include <limits>
 #include <string.h>
 
 template <class c>
@@ -296,7 +297,7 @@ void dumpFrameStats(std::ostream& s, const SensorFrame& f)
 	int w = SensorGeometry::width;
 	int h = SensorGeometry::height;
 	
-	float min = MAXFLOAT;
+	float min = std::numeric_limits<float>::max();
 	float max = -min;
 	float sum = 0.f;
 	for (int j=0; j<h; ++j)

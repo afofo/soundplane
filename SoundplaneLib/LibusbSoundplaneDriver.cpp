@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
+#include <iostream>
 
 namespace
 {
@@ -241,6 +242,7 @@ bool LibusbSoundplaneDriver::processThreadWait(int ms) const
 
 bool LibusbSoundplaneDriver::processThreadOpenDevice(LibusbClaimedDevice &outDevice) const
 {
+  std::cerr << "in processThreadOpenDevice" << std::endl;
 	for (;;)
 	{
 		libusb_device_handle* handle = libusb_open_device_with_vid_pid(
@@ -248,11 +250,13 @@ bool LibusbSoundplaneDriver::processThreadOpenDevice(LibusbClaimedDevice &outDev
 		LibusbClaimedDevice result(LibusbDevice(handle), kInterfaceNumber);
 		if (result)
 		{
+		    std::cerr << "in processThreadOpenDevice => got one" << std::endl;
 			std::swap(result, outDevice);
 			return true;
 		}
 		if (!processThreadWait(1000))
 		{
+		  std::cerr << "in processThreadOpenDevice => false" << std::endl;
 			return false;
 		}
 	}
@@ -276,6 +280,10 @@ bool LibusbSoundplaneDriver::processThreadGetDeviceInfo(libusb_device_handle *de
 
 	mFirmwareVersion.store(descriptor.bcdDevice, std::memory_order_release);
 	mSerialNumber = buffer;
+
+	std::cout << "firmware: " << getFirmwareVersion() << std::endl;
+	std::cout << "  serial: " << getSerialNumberString() << std::endl;
+	std::cout << "   state: " << getDeviceState() << std::endl;
 
 	return true;
 }
@@ -339,6 +347,8 @@ bool LibusbSoundplaneDriver::processThreadFillTransferInformation(
 
 bool LibusbSoundplaneDriver::processThreadSetDeviceState(int newState)
 {
+  std::cerr << "processThreadSetDevicestate => " << newState << std::endl;
+  
 	mState.store(newState, std::memory_order_release);
 	return !mQuitting.load(std::memory_order_acquire);
 }
@@ -513,10 +523,12 @@ void LibusbSoundplaneDriver::processThread()
 			processThreadSetDeviceState(kDeviceConnected) &&
 			processThreadScheduleInitialTransfers(transfers);
 
+		std::cerr << "processThread(): success = " << success << std::endl;
 		if (!success) continue;
 
 		// FIXME: Handle debugger interruptions
 
+		std::cerr << "processThread(): entering main event loop " << std::endl;
 		/// Run the main event loop
 		while (!processThreadShouldStopTransfers() || mOutstandingTransfers != 0) {
 			if (libusb_handle_events(mLibusbContext) != LIBUSB_SUCCESS)
